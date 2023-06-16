@@ -1,9 +1,13 @@
-from locust import HttpLocust, TaskSet, task, events
+from locust import HttpUser, TaskSet, task, events
 import time
 from elasticsearch import Elasticsearch, helpers
+# using urllib3 to disable warning about the certificate 
+import urllib3
 from os import listdir, path
 import json
 from hashlib import md5
+# using urllib3 to disable warning about the certificate
+urllib3.disable_warnings()
 
 def read_json(file_path):
     with open(path.abspath(path.join(path.dirname(__file__),'loadfiles',file_path))) as raw_json:
@@ -20,7 +24,7 @@ def read_source(file_path):
 class loadInsert(TaskSet):
     def __init__(self, *args, **kwargs):
         super(loadInsert, self).__init__(*args, **kwargs)
-        self.search_engine = Elasticsearch(["elasticsearch.local"])
+        self.search_engine = Elasticsearch(["https://elastic:passowrd@hostname-es-client:9200"], verify_certs=False, ssl_assert_hostname=False)
 
     @task(100)
     def bulk_insert(self):
@@ -39,13 +43,13 @@ class loadInsert(TaskSet):
             result = helpers.bulk(self.search_engine, actions)
         except Exception as e:
             total_time = int((time.time() - start_time) * 1000)
-            events.request_failure.fire(request_type='POST',
+            events.request.fire(request_type='POST',
                                         name='Insert',
                                         response_time=total_time,
                                         exception=e)
         else:   
             total_time = int((time.time() - start_time) * 1000)
-            events.request_success.fire(request_type='POST',
+            events.request.fire(request_type='POST',
                                         name='Insert',
                                         response_time=total_time,
                                         response_length=len(result))
@@ -53,7 +57,7 @@ class loadInsert(TaskSet):
 class reader(TaskSet):
     def __init__(self, *args, **kwargs):
         super(reader, self).__init__(*args, **kwargs)
-        self.search_engine = Elasticsearch(["elasticsearch.local"])
+        self.search_engine = Elasticsearch(["https://elastic:passowrd@hostname-es-client:9200"], verify_certs=False, ssl_assert_hostname=False)
 
     @task(3)
     def get_must(self):
@@ -74,13 +78,13 @@ class reader(TaskSet):
             )
         except Exception as e:
             total_time = int((time.time() - start_time) * 1000)
-            events.request_failure.fire(request_type='GET',
+            events.request.fire(request_type='GET',
                                         name='Search response 200',
                                         response_time=total_time,
                                         exception=e)
         else:
             total_time = int((time.time() - start_time) * 1000)
-            events.request_success.fire(request_type='GET',
+            events.request.fire(request_type='GET',
                                         name='Search response 200',
                                         response_time=total_time,
                                         response_length=len(result))
@@ -105,24 +109,24 @@ class reader(TaskSet):
             )
         except Exception as e:
             total_time = int((time.time() - start_time) * 1000)
-            events.request_failure.fire(request_type='GET',
+            events.request.fire(request_type='GET',
                                         name='Search response *',
                                         response_time=total_time,
                                         exception=e)
         else:
             total_time = int((time.time() - start_time) * 1000)
-            events.request_success.fire(request_type='GET',
+            events.request.fire(request_type='GET',
                                         name='Search response *',
                                         response_time=total_time,
                                         response_length=len(result))
 
 
-class LocustLoadInput(HttpLocust):
-    task_set = loadInsert
+class LocustLoadInput(HttpUser):
+    tasks = [loadInsert]
     min_wait = 2000
     max_wait = 60000
 
-class LocustLoadOutput(HttpLocust):
-    task_set = reader
+class LocustLoadOutput(HttpUser):
+    tasks = [reader]
     min_wait = 2000
     max_wait = 30000
