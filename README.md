@@ -3,7 +3,7 @@
 A locust implementation for load test in Elasticsearch
 ## Architecture Diagram Example
 
-![Architecture Diagram](./docs/es-loadtest.png)
+![Architecture Diagram](./docs/es-loadtest.jpg)
 
 ## Requirements
 
